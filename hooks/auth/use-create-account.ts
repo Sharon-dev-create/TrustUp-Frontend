@@ -1,6 +1,8 @@
 import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { useAuth } from '../../context/auth.context';
+import { apiFetchForm, ApiError } from '../../lib/api';
 
 /**
  * Form field state for the create account form
@@ -21,6 +23,7 @@ export interface CreateAccountErrors {
   username: string;
   displayName: string;
   profileImage: string;
+  general: string;
 }
 
 /**
@@ -67,7 +70,14 @@ const initialErrors: CreateAccountErrors = {
   username: '',
   displayName: '',
   profileImage: '',
+  general: '',
 };
+
+interface RegisterApiResponse {
+  access_token: string;
+  refresh_token?: string;
+  user: Parameters<typeof import('../../types/User').mapUserMeToProfile>[0];
+}
 
 /**
  * Validates a Stellar wallet address
@@ -119,6 +129,7 @@ const validateImageType = async (uri: string): Promise<boolean> => {
  * Handles all form state, validation, and account creation logic
  */
 export const useCreateAccount = (): UseCreateAccountReturn => {
+  const { completeAuth } = useAuth();
   const [formState, setFormState] = useState<CreateAccountFormState>(initialFormState);
   const [errors, setErrors] = useState<CreateAccountErrors>(initialErrors);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -225,44 +236,48 @@ export const useCreateAccount = (): UseCreateAccountReturn => {
     );
   }, [formState, errors]);
 
-  // Account creation handler
-  const createAccount = useCallback(() => {
-    if (isFormValid()) {
-      setIsSubmitting(true);
+  // Account creation handler — calls the real API, no more console.log/setTimeout
+  const createAccount = useCallback(async () => {
+    if (!isFormValid()) return;
 
-      const accountData = {
-        profileImage: formState.profileImage,
-        walletAddress: formState.walletAddress,
-        username: formState.username,
-        displayName: formState.displayName,
-        termsAccepted: formState.termsAccepted,
-      };
+    setIsSubmitting(true);
+    setErrors((prev) => ({ ...prev, general: '' }));
 
-      console.log('✅ Account Created Successfully:', accountData);
+    try {
+      const form = new FormData();
+      form.append('walletAddress', formState.walletAddress);
+      form.append('username', formState.username);
+      form.append('displayName', formState.displayName);
+      if (formState.profileImage) {
+        const filename = formState.profileImage.split('/').pop() ?? 'profile.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const ext = match ? match[1] : 'jpg';
+        form.append('profileImage', {
+          uri: formState.profileImage,
+          name: filename,
+          type: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+        } as unknown as Blob);
+      }
 
-      // Show success notification
+      // Assumed to mirror /auth/login's response shape (access_token,
+      // refresh_token, user) so "auto sign-in" needs no second API call —
+      // the register form never collects a password to log in with.
+      // Confirm against the real backend contract before merging.
+      const response = await apiFetchForm<RegisterApiResponse>('/auth/register', form);
+      await completeAuth(response);
       setShowSuccess(true);
-
-      // Simulate account creation delay
-      setTimeout(() => {
-        setIsSubmitting(false);
-
-        Alert.alert(
-          '✅ Account Created!',
-          `Welcome, ${formState.displayName}!\n\nYour account has been created successfully.\n\nUsername: @${formState.username}\nWallet: ${formState.walletAddress.substring(0, 10)}...`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                setShowSuccess(false);
-                console.log('Account creation confirmed');
-              },
-            },
-          ]
-        );
-      }, 500);
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Unable to create account.';
+      setErrors((prev) => ({ ...prev, general: message }));
+    } finally {
+      setIsSubmitting(false);
     }
-  }, [isFormValid, formState]);
+  }, [isFormValid, formState, completeAuth]);
 
   // Reset success state
   const resetSuccess = useCallback(() => {

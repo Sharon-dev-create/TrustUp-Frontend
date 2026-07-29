@@ -1,11 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useCreateAccount } from '../../hooks/auth/use-create-account';
 // Centralized color palette shared with Tailwind
 const colors = require('../../theme/colors.json');
 
-const CreateAccountScreen = ({ navigation }: any) => {
+interface CreateAccountScreenProps {
+  onBack?: () => void;
+  onSuccess?: () => void;
+}
+
+const CreateAccountScreen = ({ onBack, onSuccess }: CreateAccountScreenProps) => {
   const {
     formState,
     errors,
@@ -22,14 +27,21 @@ const CreateAccountScreen = ({ navigation }: any) => {
 
   const { profileImage, walletAddress, username, displayName, termsAccepted } = formState;
 
+  // Notifies the parent once account creation succeeds. AuthContext's
+  // completeAuth() (called inside createAccount) already flips the app into
+  // the signed-in state on its own — this is a courtesy callback for any
+  // parent-level bookkeeping (e.g. resetting which auth screen was active).
+  useEffect(() => {
+    if (showSuccess) {
+      onSuccess?.();
+    }
+  }, [showSuccess, onSuccess]);
+
   return (
     <View className="flex-1 bg-background">
       {/* Header */}
       <View className="flex-row items-center border-b border-gray-100 bg-white px-6 pb-4 pt-12">
-        <TouchableOpacity
-          onPress={() => navigation?.goBack()}
-          className="mr-3"
-          accessibilityLabel="Go back">
+        <TouchableOpacity onPress={onBack} className="mr-3" accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text className="text-xl font-bold text-text">Create Account</Text>
@@ -155,6 +167,10 @@ const CreateAccountScreen = ({ navigation }: any) => {
               <Text className="font-semibold text-primary">Privacy Policy</Text>
             </Text>
           </TouchableOpacity>
+
+          {errors.general ? (
+            <Text className="mb-4 text-center text-sm text-red-500">{errors.general}</Text>
+          ) : null}
 
           {/* Create Account Button */}
           <TouchableOpacity

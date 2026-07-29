@@ -1,4 +1,4 @@
-import { getAccessToken } from './token-storage';
+import { getToken as getAccessToken } from './token-storage';
 
 /**
  * Thin HTTP client for the TrustUp API.
@@ -8,8 +8,9 @@ import { getAccessToken } from './token-storage';
  * - Attaches the JWT Bearer token from `token-storage` when present.
  * - Throws `ApiClientError` on non-2xx with the backend's message when available.
  *
- * @todo This mirrors the intent of the (unmerged) API-client PR. Once the
- *   official client lands, the services can be pointed at it instead.
+ * NOTE: this is the pre-existing client for reputation/merchants/loans/pay.
+ * The auth flow (#60) uses lib/api.ts instead. See lib/token-storage.ts for
+ * why both point at the same underlying token.
  */
 
 const RAW_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
