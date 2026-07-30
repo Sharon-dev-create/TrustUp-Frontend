@@ -236,7 +236,8 @@ export const useCreateAccount = (): UseCreateAccountReturn => {
     );
   }, [formState, errors]);
 
-  // Account creation handler — calls the real API, no more console.log/setTimeout
+  // Account creation handler — calls the real API, maps per-field validation
+  // errors from the backend when available (see lib/api.ts parseFieldErrors).
   const createAccount = useCallback(async () => {
     if (!isFormValid()) return;
 
@@ -263,17 +264,33 @@ export const useCreateAccount = (): UseCreateAccountReturn => {
       // refresh_token, user) so "auto sign-in" needs no second API call —
       // the register form never collects a password to log in with.
       // Confirm against the real backend contract before merging.
-      const response = await apiFetchForm<RegisterApiResponse>('/auth/register', form);
+      const response = await apiFetchForm<RegisterApiResponse>('/auth/register', form, [
+        'walletAddress',
+        'username',
+        'displayName',
+        'profileImage',
+      ]);
       await completeAuth(response);
       setShowSuccess(true);
     } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
+      if (err instanceof ApiError && err.fieldErrors) {
+        setErrors((prev) => ({
+          ...prev,
+          walletAddress: err.fieldErrors?.walletAddress ?? prev.walletAddress,
+          username: err.fieldErrors?.username ?? prev.username,
+          displayName: err.fieldErrors?.displayName ?? prev.displayName,
+          profileImage: err.fieldErrors?.profileImage ?? prev.profileImage,
+          general: '',
+        }));
+      } else {
+        const message =
+          err instanceof ApiError
             ? err.message
-            : 'Unable to create account.';
-      setErrors((prev) => ({ ...prev, general: message }));
+            : err instanceof Error
+              ? err.message
+              : 'Unable to create account.';
+        setErrors((prev) => ({ ...prev, general: message }));
+      }
     } finally {
       setIsSubmitting(false);
     }

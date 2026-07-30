@@ -1,5 +1,6 @@
-import { getToken as getAccessToken } from './token-storage';
-
+import { getToken as getAccessToken, clearToken } from './token-storage';
+import { notifyUnauthorized } from './auth-events';
+import { FieldErrors } from './api';
 /**
  * Thin HTTP client for the TrustUp API.
  *
@@ -21,10 +22,12 @@ export const isApiConfigured = Boolean(process.env.EXPO_PUBLIC_API_URL);
 
 export class ApiClientError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  fieldErrors?: FieldErrors;
+  constructor(message: string, status: number, fieldErrors?: FieldErrors) {
     super(message);
     this.name = 'ApiClientError';
     this.status = status;
+    this.fieldErrors = fieldErrors;
   }
 }
 
@@ -66,6 +69,12 @@ async function request<T>(
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Network request failed';
     throw new ApiClientError(message, 0);
+  }
+
+  if (res.status === 401) {
+    await clearToken();
+    notifyUnauthorized();
+    throw new ApiClientError('Session expired. Please sign in again.', 401);
   }
 
   const text = await res.text();

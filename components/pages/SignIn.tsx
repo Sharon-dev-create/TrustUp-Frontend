@@ -114,7 +114,9 @@ export default function SignInScreen({ onSignInSuccess, onNavigateToCreateAccoun
           <TouchableOpacity
             className="mb-6 self-end"
             activeOpacity={0.7}
-            onPress={() => Alert.alert('Coming soon', 'Password recovery is not available yet.')}>
+             onPress={() =>
+           Alert.alert('Coming soon', 'Wallet-based sign-in is not available yet.')
+          }>
             <Text className="text-sm font-bold text-signin-link">Forgot password?</Text>
           </TouchableOpacity>
 
