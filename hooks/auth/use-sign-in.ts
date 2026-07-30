@@ -1,167 +1,120 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Alert } from 'react-native';
-import { apiFetch } from '../../lib/api';
-import { setToken } from '../../lib/auth-storage';
+import { useAuth } from '../../context/auth.context';
+import { ApiError } from '../../lib/api';
 
-/**
- * Form field state for the sign-in form
- */
 export interface SignInFormState {
-  username: string;
+  wallet: string;
   password: string;
   secureText: boolean;
 }
 
-/**
- * Validation errors for sign-in form
- */
 export interface SignInErrors {
-  username: string;
+  wallet: string;
   password: string;
+  general: string;
 }
 
-/**
- * Return type for useSignIn hook
- */
 export interface UseSignInReturn {
-  // Form state
   formState: SignInFormState;
   errors: SignInErrors;
   isSubmitting: boolean;
   isValid: boolean;
 
-  // Field change handlers
-  handleUsernameChange: (text: string) => void;
+  handleWalletChange: (text: string) => void;
   handlePasswordChange: (text: string) => void;
   toggleSecureText: () => void;
 
-  // Form submission
   handleSignIn: () => void;
 }
 
-/**
- * Auth login response. Accepts either `accessToken` (API docs) or `token`.
- */
-interface LoginResponse {
-  accessToken?: string;
-  token?: string;
-  refreshToken?: string;
-  expiresIn?: number;
-}
-
-/**
- * Initial form state
- */
 const initialFormState: SignInFormState = {
-  username: '',
+  wallet: '',
   password: '',
   secureText: true,
 };
 
-/**
- * Initial errors state
- */
 const initialErrors: SignInErrors = {
-  username: '',
+  wallet: '',
   password: '',
+  general: '',
 };
 
 /**
  * Custom hook for managing sign-in form state and validation.
  *
- * Calls `POST /auth/login` and persists the returned JWT.
- * When the backend switches to wallet nonce/verify, replace this handler
- * while keeping {@link setToken} + session gate in App.
+ * Delegates the actual API call + token/session handling to AuthContext's
+ * `signIn` — this hook owns only form UI state, so context stays the single
+ * source of truth for `user`/`token`.
  *
- * @param onSuccess Called after a successful sign in (once the token is stored).
+ * @param onSuccess Called after a successful sign in.
  */
 export const useSignIn = (onSuccess?: () => void): UseSignInReturn => {
+  const { signIn } = useAuth();
   const [formState, setFormState] = useState<SignInFormState>(initialFormState);
   const [errors, setErrors] = useState<SignInErrors>(initialErrors);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Field change handlers
-  const handleUsernameChange = useCallback((text: string) => {
-    setFormState((prev: SignInFormState) => ({ ...prev, username: text }));
-
-    if (text.trim().length === 0) {
-      setErrors((prev: SignInErrors) => ({ ...prev, username: 'Username is required' }));
-    } else {
-      setErrors((prev: SignInErrors) => ({ ...prev, username: '' }));
-    }
+  const handleWalletChange = useCallback((text: string) => {
+    setFormState((prev) => ({ ...prev, wallet: text }));
+    setErrors((prev) => ({
+      ...prev,
+      wallet: text.trim().length === 0 ? 'Wallet address is required' : '',
+      general: '',
+    }));
   }, []);
 
   const handlePasswordChange = useCallback((text: string) => {
-    setFormState((prev: SignInFormState) => ({ ...prev, password: text }));
-
-    if (text.trim().length === 0) {
-      setErrors((prev: SignInErrors) => ({ ...prev, password: 'Password is required' }));
-    } else {
-      setErrors((prev: SignInErrors) => ({ ...prev, password: '' }));
-    }
+    setFormState((prev) => ({ ...prev, password: text }));
+    setErrors((prev) => ({
+      ...prev,
+      password: text.trim().length === 0 ? 'Password is required' : '',
+      general: '',
+    }));
   }, []);
 
   const toggleSecureText = useCallback(() => {
-    setFormState((prev: SignInFormState) => ({ ...prev, secureText: !prev.secureText }));
+    setFormState((prev) => ({ ...prev, secureText: !prev.secureText }));
   }, []);
 
-  // Form validation
-  const isValid = useMemo(() => {
-    return (
-      formState.username.trim().length > 0 &&
+  const isValid = useMemo(
+    () =>
+      formState.wallet.trim().length > 0 &&
       formState.password.trim().length > 0 &&
-      errors.username === '' &&
-      errors.password === ''
-    );
-  }, [formState, errors]);
+      errors.wallet === '' &&
+      errors.password === '',
+    [formState, errors]
+  );
 
   const handleSignIn = useCallback(async () => {
     if (!isValid) return;
 
     setIsSubmitting(true);
+    setErrors((prev) => ({ ...prev, general: '' }));
 
     try {
-      const username = formState.username.trim().replace(/^@/, '');
-      const result = await apiFetch<LoginResponse>('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({
-          username,
-          password: formState.password,
-        }),
-      });
-
-      const token = result.accessToken ?? result.token;
-      if (!token) {
-        throw new Error('No access token returned from /auth/login');
-      }
-
-      await setToken(token);
+      await signIn(formState.wallet.trim(), formState.password);
       onSuccess?.();
     } catch (err) {
-      Alert.alert(
-        'Sign in failed',
-        err instanceof Error
+      const message =
+        err instanceof ApiError
           ? err.message
-          : 'Unable to sign in. Check your credentials and API URL.'
-      );
+          : err instanceof Error
+            ? err.message
+            : 'Unable to sign in. Check your credentials and try again.';
+      setErrors((prev) => ({ ...prev, general: message }));
     } finally {
       setIsSubmitting(false);
     }
-  }, [isValid, formState.username, formState.password, onSuccess]);
+  }, [isValid, formState.wallet, formState.password, signIn, onSuccess]);
 
   return {
-    // Form state
     formState,
     errors,
     isSubmitting,
     isValid,
-
-    // Field change handlers
-    handleUsernameChange,
+    handleWalletChange,
     handlePasswordChange,
     toggleSecureText,
-
-    // Form submission
     handleSignIn,
   };
 };

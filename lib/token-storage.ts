@@ -6,13 +6,8 @@
  *   is the intended backend on device; keep the async signature so swapping in
  *   persistent storage requires no changes at call sites.
  */
+import { getAccessToken, setTokens, clearTokens } from './auth-storage';
 
-let accessToken: string | null = null;
-
-export async function getAccessToken(): Promise<string | null> {
-  return accessToken;
-}
-
-export async function setAccessToken(token: string | null): Promise<void> {
-  accessToken = token;
-}
+export const getToken = getAccessToken;
+export const setToken = (token: string): Promise<void> => setTokens(token);
+export const clearToken = clearTokens;

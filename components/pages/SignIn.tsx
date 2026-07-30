@@ -9,19 +9,24 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { User, Lock, Eye, EyeOff, Wallet, ArrowRight } from 'lucide-react-native';
 import { useSignIn } from '../../hooks/auth/use-sign-in';
 
 interface SignInScreenProps {
   onSignInSuccess?: () => void;
+  onNavigateToCreateAccount?: () => void;
 }
 
-export default function SignInScreen({ onSignInSuccess }: SignInScreenProps) {
+export default function SignInScreen({ onSignInSuccess, onNavigateToCreateAccount }: SignInScreenProps) {
   const {
     formState,
+    errors,
     isValid,
-    handleUsernameChange,
+    isSubmitting,
+    handleWalletChange,
     handlePasswordChange,
     toggleSecureText,
     handleSignIn,
@@ -60,18 +65,21 @@ export default function SignInScreen({ onSignInSuccess }: SignInScreenProps) {
 
         {/* Form Fields */}
         <View className="mt-2.5 w-full">
-          <Text className="mb-2 ml-1 text-xs font-bold text-[#94a3b8]">Username</Text>
+          <Text className="mb-2 ml-1 text-xs font-bold text-[#94a3b8]">Wallet Address</Text>
           <View className="mb-4 flex-row items-center rounded-2xl border border-[#f1f5f9] bg-white px-4 py-4">
             <User stroke="#94a3b8" size={20} />
             <TextInput
               className="ml-2 flex-1 text-base text-[#1e293b]"
-              placeholder="@josue_crypto"
+              placeholder="G..."
               placeholderTextColor="#cbd5e1"
-              value={formState.username}
-              onChangeText={handleUsernameChange}
+              value={formState.wallet}
+              onChangeText={handleWalletChange}
               autoCapitalize="none"
             />
           </View>
+          {errors.wallet ? (
+            <Text className="mb-2 -mt-2 ml-1 text-xs text-red-500">{errors.wallet}</Text>
+          ) : null}
 
           <Text className="mb-2 ml-1 text-xs font-bold text-[#94a3b8]">Password</Text>
           <View className="mb-4 flex-row items-center rounded-2xl border border-[#f1f5f9] bg-white px-4 py-4">
@@ -96,28 +104,46 @@ export default function SignInScreen({ onSignInSuccess }: SignInScreenProps) {
               )}
             </Pressable>
           </View>
+          {errors.password ? (
+            <Text className="mb-2 -mt-2 ml-1 text-xs text-red-500">{errors.password}</Text>
+          ) : null}
+          {errors.general ? (
+            <Text className="mb-4 text-center text-sm text-red-500">{errors.general}</Text>
+          ) : null}
 
-          <TouchableOpacity className="mb-6 self-end" activeOpacity={0.7}>
+          <TouchableOpacity
+            className="mb-6 self-end"
+            activeOpacity={0.7}
+             onPress={() =>
+           Alert.alert('Coming soon', 'Wallet-based sign-in is not available yet.')
+          }>
             <Text className="text-sm font-bold text-signin-link">Forgot password?</Text>
           </TouchableOpacity>
 
           {/* Sign In Button */}
           <Pressable
             onPress={handleSignIn}
-            accessibilityState={{ disabled: !isValid }}
+            disabled={!isValid || isSubmitting}
+            accessibilityState={{ disabled: !isValid || isSubmitting }}
             style={{
               height: 60,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
               borderRadius: 20,
-              backgroundColor: isValid ? '#ff9a76' : '#cbd5e1',
-              elevation: isValid ? 8 : 0,
+              backgroundColor: isValid && !isSubmitting ? '#ff9a76' : '#cbd5e1',
+              elevation: isValid && !isSubmitting ? 8 : 0,
             }}>
-            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold', marginRight: 8 }}>
-              Sign In
-            </Text>
-            <ArrowRight stroke="#fff" size={18} />
+            {isSubmitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 'bold', marginRight: 8 }}>
+                  Sign In
+                </Text>
+                <ArrowRight stroke="#fff" size={18} />
+              </>
+            )}
           </Pressable>
         </View>
 
@@ -139,7 +165,7 @@ export default function SignInScreen({ onSignInSuccess }: SignInScreenProps) {
         {/* Footer */}
         <View className="mt-8 flex-row">
           <Text className="text-[#64748b]">Don&apos;t have an account? </Text>
-          <TouchableOpacity activeOpacity={0.7}>
+          <TouchableOpacity activeOpacity={0.7} onPress={onNavigateToCreateAccount}>
             <Text className="font-bold text-signin-link">Sign Up</Text>
           </TouchableOpacity>
         </View>

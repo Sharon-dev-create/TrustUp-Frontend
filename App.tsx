@@ -1,53 +1,64 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { View, ActivityIndicator, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import InvestScreen from 'components/pages/InvestScreen';
 import SignInScreen from 'components/pages/SignIn';
+import CreateAccountScreen from 'components/pages/CreateAccountScreen';
 import { MainLayout } from 'components/shared/MainLayout';
-import { getToken } from 'lib/auth-storage';
+import { AuthProvider, useAuth } from 'context/auth.context';
 import './global.css';
-
-type Session = 'loading' | 'in' | 'out';
 
 const colors = require('./theme/colors.json');
 
-export default function App() {
-  const [session, setSession] = useState<Session>('loading');
+type AuthScreen = 'sign-in' | 'create-account';
 
-  useEffect(() => {
-    (async () => {
-      const token = await getToken();
-      setSession(token ? 'in' : 'out');
-    })();
-  }, []);
+function AppContent() {
+  const { user, token, isLoading, signOut } = useAuth();
+  const [authScreen, setAuthScreen] = useState<AuthScreen>('sign-in');
 
-  const handleSignInSuccess = useCallback(() => setSession('in'), []);
-  const handleSignOut = useCallback(() => setSession('out'), []);
+  const handleSignOut = useCallback(() => {
+    void signOut();
+  }, [signOut]);
+
+  if (isLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.background,
+        }}>
+        <ActivityIndicator size="large" color={colors.cta} />
+      </View>
+    );
+  }
+
+  if (!token || !user) {
+    return authScreen === 'sign-in' ? (
+      <SignInScreen onNavigateToCreateAccount={() => setAuthScreen('create-account')} />
+    ) : (
+      <CreateAccountScreen
+        onBack={() => setAuthScreen('sign-in')}
+        onSuccess={() => setAuthScreen('sign-in')}
+      />
+    );
+  }
 
   return (
+    <MainLayout onSignOut={handleSignOut}>
+      <InvestScreen />
+    </MainLayout>
+  );
+}
+
+export default function App() {
+  return (
     <SafeAreaProvider>
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor="#FFFFFF"
-        translucent={false}
-      />
-      {session === 'loading' ? (
-        <View
-          style={{
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: colors.background,
-          }}>
-          <ActivityIndicator size="large" color={colors.cta} />
-        </View>
-      ) : session === 'out' ? (
-        <SignInScreen onSignInSuccess={handleSignInSuccess} />
-      ) : (
-        <MainLayout onSignOut={handleSignOut}>
-          <InvestScreen />
-        </MainLayout>
-      )}
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" translucent={false} />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

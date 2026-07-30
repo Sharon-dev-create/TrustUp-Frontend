@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../../lib/api';
-import { clearToken } from '../../lib/auth-storage';
+import { clearTokens } from '../../lib/auth-storage';
 import { mapUserMeToProfile, type UserMeApiResponse, type UserProfile } from '../../types/User';
 
 /**
@@ -65,7 +65,7 @@ export const useProfile = (): UseProfileReturn => {
   }, [fetchProfile]);
 
   const disconnectWallet = useCallback(async () => {
-    await clearToken();
+    await clearTokens();
     setProfile(null);
   }, []);
 
