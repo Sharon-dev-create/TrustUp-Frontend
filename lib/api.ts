@@ -1,5 +1,6 @@
 import { getAccessToken, clearTokens } from './auth-storage';
 import { notifyUnauthorized, setUnauthorizedHandler } from './auth-events';
+import { refreshAccessToken } from './token-refresh';
 
 export { setUnauthorizedHandler };
 
@@ -89,6 +90,9 @@ export const unwrapApiData = <T>(body: unknown): T => {
  * Thin fetch wrapper that prefixes {@link API_BASE_URL}, attaches the stored
  * Bearer token, and parses JSON responses.
  *
+ * On 401, attempts to refresh the access token once. If refresh succeeds,
+ * retries the original request. If refresh fails, clears tokens and signs out.
+ *
  * @param knownFields Optional list of form field names — when present, the
  *   error body is inspected for per-field validation errors (see
  *   {@link parseFieldErrors}) and attached to the thrown ApiError.
@@ -99,6 +103,15 @@ export const apiFetch = async <T>(
   options: RequestInit = {},
   knownFields?: string[]
 ): Promise<T> => {
+  return apiFetchInternal<T>(path, options, knownFields, false);
+};
+
+async function apiFetchInternal<T>(
+  path: string,
+  options: RequestInit,
+  knownFields: string[] | undefined,
+  isRetry: boolean
+): Promise<T> {
   const token = await getAccessToken();
 
   const headers: Record<string, string> = {
@@ -117,9 +130,24 @@ export const apiFetch = async <T>(
   const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
 
   if (response.status === 401) {
-    await clearTokens();
-    notifyUnauthorized();
-    throw new ApiError(401, 'Session expired. Please sign in again.');
+    // On 401, try to refresh the token once. If this is a retry, don't try again.
+    if (!isRetry) {
+      try {
+        await refreshAccessToken();
+        // Refresh succeeded; retry the original request with the new token.
+        return apiFetchInternal<T>(path, options, knownFields, true);
+      } catch {
+        // Refresh failed; clear tokens and sign out.
+        await clearTokens();
+        notifyUnauthorized();
+        throw new ApiError(401, 'Session expired. Please sign in again.');
+      }
+    } else {
+      // Already retried; don't loop.
+      await clearTokens();
+      notifyUnauthorized();
+      throw new ApiError(401, 'Session expired. Please sign in again.');
+    }
   }
 
   if (!response.ok) {
@@ -145,12 +173,15 @@ export const apiFetch = async <T>(
 
   const json = await response.json();
   return unwrapApiData<T>(json);
-};
+}
 
 /**
  * Variant of {@link apiFetch} for multipart/form-data bodies (e.g. register
  * with an optional profile image). Does not set Content-Type — fetch/RN sets
  * the multipart boundary automatically when the body is a FormData instance.
+ *
+ * On 401, attempts to refresh the access token once. If refresh succeeds,
+ * retries the original request. If refresh fails, clears tokens and signs out.
  *
  * @param knownFields Optional list of form field names for per-field error
  *   mapping, same as {@link apiFetch}.
@@ -160,6 +191,15 @@ export const apiFetchForm = async <T>(
   formData: FormData,
   knownFields?: string[]
 ): Promise<T> => {
+  return apiFetchFormInternal<T>(path, formData, knownFields, false);
+};
+
+async function apiFetchFormInternal<T>(
+  path: string,
+  formData: FormData,
+  knownFields: string[] | undefined,
+  isRetry: boolean
+): Promise<T> {
   const token = await getAccessToken();
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -175,9 +215,24 @@ export const apiFetchForm = async <T>(
   });
 
   if (response.status === 401) {
-    await clearTokens();
-    notifyUnauthorized();
-    throw new ApiError(401, 'Session expired. Please sign in again.');
+    // On 401, try to refresh the token once. If this is a retry, don't try again.
+    if (!isRetry) {
+      try {
+        await refreshAccessToken();
+        // Refresh succeeded; retry the original request with the new token.
+        return apiFetchFormInternal<T>(path, formData, knownFields, true);
+      } catch {
+        // Refresh failed; clear tokens and sign out.
+        await clearTokens();
+        notifyUnauthorized();
+        throw new ApiError(401, 'Session expired. Please sign in again.');
+      }
+    } else {
+      // Already retried; don't loop.
+      await clearTokens();
+      notifyUnauthorized();
+      throw new ApiError(401, 'Session expired. Please sign in again.');
+    }
   }
 
   if (!response.ok) {
@@ -196,4 +251,4 @@ export const apiFetchForm = async <T>(
 
   const json = await response.json();
   return unwrapApiData<T>(json);
-};
+}
