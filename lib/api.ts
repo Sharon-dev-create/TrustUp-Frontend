@@ -5,11 +5,13 @@ export { setUnauthorizedHandler };
 
 export type FieldErrors = Record<string, string>;
 
-/**
- * Base URL for the backend API, read from the public Expo env variable.
- * See `.env.example` for the expected value (already includes `/api/v1`).
- */
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
+const RAW_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
+const NORMALIZED_BASE = RAW_BASE.replace(/\/+$/, '');
+export const API_BASE_URL = NORMALIZED_BASE.endsWith('/api/v1')
+  ? NORMALIZED_BASE
+  : `${NORMALIZED_BASE}/api/v1`;
+
+export const isApiConfigured = Boolean(process.env.EXPO_PUBLIC_API_URL);
 
 export class ApiError extends Error {
   status: number;
@@ -23,15 +25,11 @@ export class ApiError extends Error {
   }
 }
 
-/**
- * Best-effort extraction of per-field validation errors from a REST error
- * body. Covers three common shapes since the real backend contract isn't
- * documented anywhere in this repo: NestJS class-validator's default
- * `{ message: string[] }` (field name assumed to prefix each sentence),
- * `{ errors: { field: string | string[] } }`, and
- * `{ errors: [{ field | property, message }] }`. Returns undefined if none
- * match — callers fall back to the flat message.
- */
+export interface ApiRequestOptions {
+  params?: Record<string, string | number | boolean | undefined | null>;
+  signal?: AbortSignal;
+}
+
 function parseFieldErrors(body: unknown, knownFields: string[]): FieldErrors | undefined {
   if (!body || typeof body !== 'object') return undefined;
   const result: FieldErrors = {};
@@ -74,10 +72,6 @@ function parseFieldErrors(body: unknown, knownFields: string[]): FieldErrors | u
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
-/**
- * Some TrustUp endpoints wrap payloads as `{ success, data, message }`.
- * Returns the inner `data` when present; otherwise the body as-is.
- */
 export const unwrapApiData = <T>(body: unknown): T => {
   if (body && typeof body === 'object' && 'data' in body) {
     return (body as { data: T }).data;
@@ -85,15 +79,6 @@ export const unwrapApiData = <T>(body: unknown): T => {
   return body as T;
 };
 
-/**
- * Thin fetch wrapper that prefixes {@link API_BASE_URL}, attaches the stored
- * Bearer token, and parses JSON responses.
- *
- * @param knownFields Optional list of form field names — when present, the
- *   error body is inspected for per-field validation errors (see
- *   {@link parseFieldErrors}) and attached to the thrown ApiError.
- * @throws {ApiError} when the response status is not in the 2xx range.
- */
 export const apiFetch = async <T>(
   path: string,
   options: RequestInit = {},
@@ -147,14 +132,6 @@ export const apiFetch = async <T>(
   return unwrapApiData<T>(json);
 };
 
-/**
- * Variant of {@link apiFetch} for multipart/form-data bodies (e.g. register
- * with an optional profile image). Does not set Content-Type — fetch/RN sets
- * the multipart boundary automatically when the body is a FormData instance.
- *
- * @param knownFields Optional list of form field names for per-field error
- *   mapping, same as {@link apiFetch}.
- */
 export const apiFetchForm = async <T>(
   path: string,
   formData: FormData,
@@ -196,4 +173,32 @@ export const apiFetchForm = async <T>(
 
   const json = await response.json();
   return unwrapApiData<T>(json);
+};
+
+function buildQueryString(
+  params?: Record<string, string | number | boolean | undefined | null>
+): string {
+  if (!params) return '';
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null) {
+      searchParams.set(key, String(value));
+    }
+  }
+  const qs = searchParams.toString();
+  return qs ? `?${qs}` : '';
+}
+
+export const apiClient = {
+  get: async <T>(path: string, options?: ApiRequestOptions): Promise<T> => {
+    const queryString = buildQueryString(options?.params);
+    return apiFetch<T>(`${path}${queryString}`, { signal: options?.signal });
+  },
+  post: async <T>(path: string, body?: unknown, options?: ApiRequestOptions): Promise<T> => {
+    return apiFetch<T>(path, {
+      method: 'POST',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: options?.signal,
+    });
+  },
 };
