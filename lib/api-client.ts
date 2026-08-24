@@ -1,5 +1,6 @@
 import { getToken as getAccessToken, clearToken } from './token-storage';
 import { notifyUnauthorized } from './auth-events';
+import { refreshAccessToken } from './token-refresh';
 import { FieldErrors } from './api';
 /**
  * Thin HTTP client for the TrustUp API.
@@ -53,6 +54,16 @@ async function request<T>(
   body?: unknown,
   options?: RequestOptions
 ): Promise<T> {
+  return requestInternal<T>(method, path, body, options, false);
+}
+
+async function requestInternal<T>(
+  method: 'GET' | 'POST',
+  path: string,
+  body: unknown | undefined,
+  options: RequestOptions | undefined,
+  isRetry: boolean
+): Promise<T> {
   const token = await getAccessToken();
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -72,9 +83,24 @@ async function request<T>(
   }
 
   if (res.status === 401) {
-    await clearToken();
-    notifyUnauthorized();
-    throw new ApiClientError('Session expired. Please sign in again.', 401);
+    // On 401, try to refresh the token once. If this is a retry, don't try again.
+    if (!isRetry) {
+      try {
+        await refreshAccessToken();
+        // Refresh succeeded; retry the original request with the new token.
+        return requestInternal<T>(method, path, body, options, true);
+      } catch {
+        // Refresh failed; clear tokens and sign out.
+        await clearToken();
+        notifyUnauthorized();
+        throw new ApiClientError('Session expired. Please sign in again.', 401);
+      }
+    } else {
+      // Already retried; don't loop.
+      await clearToken();
+      notifyUnauthorized();
+      throw new ApiClientError('Session expired. Please sign in again.', 401);
+    }
   }
 
   const text = await res.text();
