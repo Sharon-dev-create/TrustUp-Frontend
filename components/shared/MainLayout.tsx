@@ -16,7 +16,6 @@ import EditProfileScreen from '../pages/EditProfileScreen';
 import PayScreen from '../pages/pay/PayScreen';
 import InvestScreen from '../pages/InvestScreen';
 import { useProfile, getInitials } from '../../hooks/profile/use-profile';
-import { useNotifications } from '../../hooks/notifications/use-notifications';
 import type { Loan } from '../../types/Loan';
 import type { MerchantSummary } from '../../types/api';
 
@@ -33,14 +32,13 @@ export const MainLayout = ({ onSignOut }: MainLayoutProps) => {
   const [isReputationOpen, setIsReputationOpen] = useState(false);
   const [isMerchantsOpen, setIsMerchantsOpen] = useState(false);
   const [isMerchantDetailOpen, setIsMerchantDetailOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [selectedMerchant, setSelectedMerchant] = useState<MerchantSummary | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
   const { profile, isLoading, error, disconnectWallet, saveProfile } = useProfile();
-  const { unreadCount } = useNotifications();
 
   const handleLoanPress = (loan: Loan) => {
     setSelectedLoan(loan);
@@ -126,10 +124,19 @@ export const MainLayout = ({ onSignOut }: MainLayoutProps) => {
           <View className="flex-1">{baseScreen}</View>
         </View>
         {!hasOverlay && (
-          <View className="absolute bottom-0 left-0 right-0 z-10 h-[60px] bg-transparent">
-            <BottomBar activeTab={activeTab} setActiveTab={setActiveTab} />
-          </View>
+          <Header
+            displayName={profile?.displayName}
+            avatarUrl={profile?.avatarUrl}
+            initials={profile ? getInitials(profile.displayName) : undefined}
+            onNotificationsPress={() => setIsNotificationsOpen(true)}
+            onSettingsPress={() => setIsSettingsOpen(true)}
+            onProfilePress={() => setIsProfileOpen(true)}
+          />
         )}
+
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          {enhancedChildren}
+        </ScrollView>
 
         {/* Settings Overlay */}
         {isSettingsOpen && (
