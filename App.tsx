@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import { View, ActivityIndicator, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import PayScreen from 'components/pages/pay/PayScreen';
 import SignInScreen from 'components/pages/SignIn';
 import CreateAccountScreen from 'components/pages/CreateAccountScreen';
 import { MainLayout } from 'components/shared/MainLayout';
@@ -46,9 +45,7 @@ function AppContent() {
   }
 
   return (
-    <MainLayout onSignOut={handleSignOut}>
-      <PayScreen />
-    </MainLayout>
+    <MainLayout onSignOut={handleSignOut} />
   );
 }
 

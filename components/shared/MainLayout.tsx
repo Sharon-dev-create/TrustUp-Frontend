@@ -1,6 +1,7 @@
-import React, { ReactNode, useState, isValidElement, cloneElement } from 'react';
-import { View, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BottomBar, type TabId } from './BottomBar';
 import { Header } from './Header';
 import { NotificationsPanel } from './NotificationsPanel';
 import { Toast } from './Toast';
@@ -12,25 +13,18 @@ import MerchantsScreen from '../pages/MerchantsScreen';
 import MerchantDetailScreen from '../pages/MerchantDetailScreen';
 import ProfileScreen from '../pages/ProfileScreen';
 import EditProfileScreen from '../pages/EditProfileScreen';
+import PayScreen from '../pages/pay/PayScreen';
+import InvestScreen from '../pages/InvestScreen';
 import { useProfile, getInitials } from '../../hooks/profile/use-profile';
 import type { Loan } from '../../types/Loan';
 import type { MerchantSummary } from '../../types/api';
 
 interface MainLayoutProps {
-  children: ReactNode;
-  /** Called when the user disconnects the wallet or signs out. */
   onSignOut?: () => void;
 }
 
-/** Callbacks injected into the direct child of MainLayout for navigation + toasts. */
-interface PayScreenChildProps {
-  onLoanHistoryPress?: () => void;
-  onViewReputationPress?: () => void;
-  onExploreMerchantsPress?: () => void;
-  onToast?: (message: string) => void;
-}
-
-export const MainLayout = ({ children, onSignOut }: MainLayoutProps) => {
+export const MainLayout = ({ onSignOut }: MainLayoutProps) => {
+  const [activeTab, setActiveTab] = useState<TabId>('pay');
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLoanHistoryOpen, setIsLoanHistoryOpen] = useState(false);
@@ -99,19 +93,36 @@ export const MainLayout = ({ children, onSignOut }: MainLayoutProps) => {
     isProfileOpen ||
     isEditProfileOpen;
 
-  // Inject callbacks into children so PayScreen can trigger navigation
-  const enhancedChildren = isValidElement(children)
-    ? cloneElement(children as React.ReactElement<PayScreenChildProps>, {
-        onLoanHistoryPress: () => setIsLoanHistoryOpen(true),
-        onViewReputationPress: () => setIsReputationOpen(true),
-        onExploreMerchantsPress: () => setIsMerchantsOpen(true),
-        onToast: (message: string) => setToastMessage(message),
-      })
-    : children;
+  const baseScreen =
+    activeTab === 'pay' ? (
+      <PayScreen
+        onLoanHistoryPress={() => setIsLoanHistoryOpen(true)}
+        onViewReputationPress={() => setIsReputationOpen(true)}
+        onExploreMerchantsPress={() => setIsMerchantsOpen(true)}
+        onToast={(message: string) => setToastMessage(message)}
+      />
+    ) : (
+      <InvestScreen />
+    );
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>
       <View className="flex-1 bg-background">
+        <View className="flex-1 pb-[60px]">
+          {!hasOverlay && (
+            <Header
+              displayName={profile?.displayName}
+              avatarUrl={profile?.avatarUrl}
+              initials={profile ? getInitials(profile.displayName) : undefined}
+              unreadNotificationsCount={unreadCount}
+              onNotificationsPress={() => setIsNotificationsOpen(true)}
+              onSettingsPress={() => setIsSettingsOpen(true)}
+              onProfilePress={() => setIsProfileOpen(true)}
+            />
+          )}
+
+          <View className="flex-1">{baseScreen}</View>
+        </View>
         {!hasOverlay && (
           <Header
             displayName={profile?.displayName}
