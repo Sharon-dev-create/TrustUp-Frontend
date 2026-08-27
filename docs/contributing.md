@@ -50,6 +50,7 @@ The default configuration points to the production API. No additional setup need
 ```env
    EXPO_PUBLIC_API_URL=http://localhost:4000/api/v1
 ```
+The value may omit the `/api/v1` suffix; the client appends it automatically if missing.
 
 ### 5. Expo Configuration
 
