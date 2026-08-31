@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import SettingsScreen from '../components/pages/SettingsScreen';
-import { useAuth } from '../context/auth.context';
+import { useAuth } from '@/context/auth.context';
 
 export default function Settings() {
   const router = useRouter();

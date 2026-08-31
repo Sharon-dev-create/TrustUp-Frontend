@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider, useAuth } from '../context/auth.context';
+import { AuthProvider, useAuth } from '@/context/auth.context';
 import '../global.css';
 
 const colors = require('../theme/colors.json');
