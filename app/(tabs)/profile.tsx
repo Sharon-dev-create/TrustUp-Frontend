@@ -1,42 +1,28 @@
 import { useCallback } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { Header } from '../../components/shared/Header';
-import { useProfile, getInitials } from '../../hooks/profile/use-profile';
-
-const colors = require('../../theme/colors.json');
+import { useRouter, useFocusEffect } from 'expo-router';
+import ProfileScreen from '../../components/pages/ProfileScreen';
+import { useProfile } from '../../hooks/profile/use-profile';
 
 export default function ProfileTab() {
   const router = useRouter();
-  const { profile, isLoading, error, disconnectWallet } = useProfile();
+  const { profile, isLoading, error, disconnectWallet, refresh } = useProfile();
 
-  const handleSignOut = useCallback(async () => {
+  // Reload the latest profile whenever the tab regains focus (e.g. after
+  // returning from Edit Profile) so edited fields are reflected.
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
+
+  const handleEditPress = useCallback(() => {
+    router.push('/edit-profile');
+  }, [router]);
+
+  const handleDisconnect = useCallback(async () => {
     await disconnectWallet();
     router.replace('/sign-in');
   }, [router, disconnectWallet]);
-
-  if (isLoading) {
-    return (
-      <SafeAreaView className="flex-1 bg-white" edges={['top']}>
-        <View className="flex-1 items-center justify-center bg-background">
-          <ActivityIndicator size="large" color={colors.cta} />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView className="flex-1 bg-white" edges={['top']}>
-        <View className="flex-1 items-center justify-center bg-background px-6">
-          <Ionicons name="alert-circle" size={48} color={colors.error} />
-          <Text className="mt-4 text-center text-base text-error">{error}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>

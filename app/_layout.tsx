@@ -51,9 +51,6 @@ function RootNavigator() {
     );
   }
 
-  return (
-    <SafeAreaProvider>
-      <Slot />
-    </SafeAreaProvider>
-  );
+export default function RootLayout() {
+  return <SafeAreaProvider><AuthProvider><Gate /></AuthProvider></SafeAreaProvider>;
 }
