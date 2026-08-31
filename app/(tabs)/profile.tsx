@@ -46,7 +46,7 @@ export default function ProfileTab() {
           avatarUrl={profile?.avatarUrl}
           initials={profile ? getInitials(profile.displayName) : undefined}
           onNotificationsPress={() => router.push('/(tabs)/notifications')}
-          onSettingsPress={() => {}}
+          onSettingsPress={() => router.push('/settings')}
           onProfilePress={() => {}}
         />
 
@@ -89,6 +89,7 @@ export default function ProfileTab() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            onPress={() => router.push('/settings')}
             className="mb-3 flex-row items-center justify-between rounded-xl bg-white p-4 shadow-sm"
             activeOpacity={0.7}>
             <View className="flex-row items-center gap-3">
