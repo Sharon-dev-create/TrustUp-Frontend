@@ -1,60 +1,20 @@
-import { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
-import { Slot, useRouter, useSegments } from 'expo-router';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { getToken } from '../lib/auth-storage';
-import '../global.css';
-
-const colors = require('../theme/colors.json');
-
-export default function RootLayout() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+import { AuthProvider, useAuth } from '../context/auth.context';import { Slot, useRouter, useSegments } from 'expo-router';import { ActivityIndicator, View } from 'react-native';import { SafeAreaProvider } from 'react-native-safe-area-context';import { useEffect } from 'react';import '../global.css';function Gate() {
+  const { token, user, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-
-  useEffect(() => {
-    (async () => {
-      const token = await getToken();
-      setIsAuthenticated(!!token);
-      setIsLoading(false);
-    })();
-  }, []);
-
   useEffect(() => {
     if (isLoading) return;
-
-    const inAuthGroup =
-      segments[0] === '(auth)' || segments[0] === 'sign-in' || segments[0] === 'create-account';
-
-    if (!isAuthenticated && !inAuthGroup) {
-      // Redirect to sign-in if not authenticated
-      router.replace('/sign-in');
-    } else if (isAuthenticated && inAuthGroup) {
-      // Redirect to home if authenticated and trying to access auth screens
-      router.replace('/(tabs)');
+    const auth = segments[0] === 'sign-in' || segments[0] === 'create-account';
+    if (!token || !user) {
+      if (!auth) router.replace('/sign-in');
+    } else if (auth) {
+      router.replace('/($tabs)');
     }
-  }, [isAuthenticated, segments, isLoading, router]);
+  }, [token, user, isLoading, segments, router]);
+  if (isLoading) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator size="large" /></View>;
+  return <Slot />;
+}
 
-  if (isLoading) {
-    return (
-      <SafeAreaProvider>
-        <View
-          style={{
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: colors.background,
-          }}>
-          <ActivityIndicator size="large" color={colors.cta} />
-        </View>
-      </SafeAreaProvider>
-    );
-  }
-
-  return (
-    <SafeAreaProvider>
-      <Slot />
-    </SafeAreaProvider>
-  );
+export default function RootLayout() {
+  return <SafeAreaProvider><AuthProvider><Gate /></AuthProvider></SafeAreaProvider>;
 }
